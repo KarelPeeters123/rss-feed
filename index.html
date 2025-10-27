@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My RSS Feed Aggregator</title>
+  <title>My RSS & Atom Feed Aggregator</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -38,48 +38,74 @@
   </style>
 </head>
 <body>
-  <h1>My RSS Feed Aggregator</h1>
+  <h1>My RSS & Atom Feed Aggregator</h1>
   <div id="feed"></div>
 
   <script>
-    // 🔗 List of RSS feed URLs
+    // 🔗 List of feed URLs (RSS or Atom)
     const feeds = [
       "https://www.rnz.co.nz/rss/national.xml",
       "https://www.rnz.co.nz/rss/business.xml",
-      "https://www.stuff.co.nz/rss"
-      
+      "https://www.stuff.co.nz/rss",
+      // Example Atom feed:
+      "https://github.blog/feed/"
     ];
 
     const feedContainer = document.getElementById("feed");
 
     async function fetchFeed(url) {
       try {
-        // RSS feeds often block CORS, so we use a public proxy
+        // RSS/Atom feeds often block CORS, so use a public proxy
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
         const res = await fetch(proxyUrl);
         const data = await res.json();
         const parser = new DOMParser();
         const xml = parser.parseFromString(data.contents, "text/xml");
 
-        const items = xml.querySelectorAll("item");
-        const sourceTitle = xml.querySelector("channel > title")?.textContent || url;
+        // Detect feed type: RSS or Atom
+        const isRSS = xml.querySelector("rss, channel");
+        const isAtom = xml.querySelector("feed");
 
+        let items = [];
+        let sourceTitle = url;
+
+        if (isRSS) {
+          // --- Handle RSS ---
+          sourceTitle = xml.querySelector("channel > title")?.textContent || url;
+          items = Array.from(xml.querySelectorAll("item")).map(item => ({
+            title: item.querySelector("title")?.textContent || "No title",
+            link: item.querySelector("link")?.textContent || "#",
+            description: item.querySelector("description")?.textContent || "",
+            pubDate: item.querySelector("pubDate")?.textContent || ""
+          }));
+        } else if (isAtom) {
+          // --- Handle Atom ---
+          sourceTitle = xml.querySelector("feed > title")?.textContent || url;
+          items = Array.from(xml.querySelectorAll("entry")).map(entry => ({
+            title: entry.querySelector("title")?.textContent || "No title",
+            link: entry.querySelector("link")?.getAttribute("href") || "#",
+            description: entry.querySelector("summary")?.textContent ||
+                         entry.querySelector("content")?.textContent || "",
+            pubDate: entry.querySelector("updated")?.textContent ||
+                     entry.querySelector("published")?.textContent || ""
+          }));
+        } else {
+          throw new Error("Unknown feed type");
+        }
+
+        // --- Render feed items ---
         items.forEach(item => {
-          const title = item.querySelector("title")?.textContent || "No title";
-          const link = item.querySelector("link")?.textContent || "#";
-          const description = item.querySelector("description")?.textContent || "";
-          const pubDate = item.querySelector("pubDate")?.textContent || "";
-
           const div = document.createElement("div");
           div.className = "feed-item";
           div.innerHTML = `
-            <h2><a href="${link}" target="_blank" rel="noopener">${title}</a></h2>
+            <h2><a href="${item.link}" target="_blank" rel="noopener">${item.title}</a></h2>
             <div class="source">Source: ${sourceTitle}</div>
-            <div>${description}</div>
-            <small>${pubDate}</small>
+            <div>${item.description}</div>
+            <small>${item.pubDate}</small>
           `;
           feedContainer.appendChild(div);
         });
+
       } catch (err) {
         console.error("Failed to load feed:", url, err);
         const div = document.createElement("div");
