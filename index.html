@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My RSS Feed Aggregator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+      color: #333;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .feed-item {
+      border-bottom: 1px solid #ddd;
+      padding: 10px 0;
+    }
+    .feed-item h2 {
+      font-size: 1.1rem;
+      margin: 0;
+    }
+    .feed-item a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .feed-item a:hover {
+      text-decoration: underline;
+    }
+    .source {
+      color: #777;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>My RSS Feed Aggregator</h1>
+  <div id="feed"></div>
+
+  <script>
+    // 🔗 List of RSS feed URLs
+    const feeds = [
+      "https://www.rnz.co.nz/rss/national.xml",
+      "https://www.rnz.co.nz/rss/business.xml",
+      "https://www.stuff.co.nz/rss"
+      
+    ];
+
+    const feedContainer = document.getElementById("feed");
+
+    async function fetchFeed(url) {
+      try {
+        // RSS feeds often block CORS, so we use a public proxy
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxyUrl);
+        const data = await res.json();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(data.contents, "text/xml");
+
+        const items = xml.querySelectorAll("item");
+        const sourceTitle = xml.querySelector("channel > title")?.textContent || url;
+
+        items.forEach(item => {
+          const title = item.querySelector("title")?.textContent || "No title";
+          const link = item.querySelector("link")?.textContent || "#";
+          const description = item.querySelector("description")?.textContent || "";
+          const pubDate = item.querySelector("pubDate")?.textContent || "";
+
+          const div = document.createElement("div");
+          div.className = "feed-item";
+          div.innerHTML = `
+            <h2><a href="${link}" target="_blank" rel="noopener">${title}</a></h2>
+            <div class="source">Source: ${sourceTitle}</div>
+            <div>${description}</div>
+            <small>${pubDate}</small>
+          `;
+          feedContainer.appendChild(div);
+        });
+      } catch (err) {
+        console.error("Failed to load feed:", url, err);
+        const div = document.createElement("div");
+        div.textContent = `Error loading feed: ${url}`;
+        feedContainer.appendChild(div);
+      }
+    }
+
+    // Fetch all feeds in parallel
+    Promise.all(feeds.map(fetchFeed));
+  </script>
+</body>
+</html>
