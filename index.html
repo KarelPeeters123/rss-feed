@@ -16,6 +16,31 @@
     h1 {
       text-align: center;
     }
+    nav {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .tab-button {
+      background: #eee;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin: 0 5px;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: background 0.3s;
+    }
+    .tab-button.active {
+      background: #0066cc;
+      color: white;
+    }
+    .feed-container {
+      display: none;
+    }
+    .feed-container.active {
+      display: block;
+    }
     .feed-item {
       border-bottom: 1px solid #ddd;
       padding: 10px 0;
@@ -43,23 +68,48 @@
 </head>
 <body>
   <h1>My RSS & Atom Feed Aggregator</h1>
-  <div id="feed"></div>
+
+  <nav>
+    <button class="tab-button active" data-tab="rss">Feeds</button>
+    <button class="tab-button" data-tab="youtube">YouTube</button>
+  </nav>
+
+  <div id="rss" class="feed-container active"></div>
+  <div id="youtube" class="feed-container"></div>
 
   <script>
+    // --- RSS / Atom FEEDS ---
     const feeds = [
       "https://www.rnz.co.nz/rss/national.xml",
       "https://www.rnz.co.nz/rss/business.xml",
       "https://www.stuff.co.nz/rss",
-      // Example Atom feed
       "https://github.blog/feed/"
     ];
 
-    const feedContainer = document.getElementById("feed");
-    const allItems = [];
+    // --- YouTube CHANNEL IDs ---
+    const youtubeChannels = [
+      "UC_x5XG1OV2P6uZZ5FSM9Ttw", // Google Developers
+      "UCBR8-60-B28hp2BmDPdntcQ"  // YouTube Official
+      // Add your own: "UCxxxxxxxxxxxxxxxxxxxxxx"
+    ];
 
+    // ---- TAB HANDLING ----
+    const tabButtons = document.querySelectorAll(".tab-button");
+    const containers = document.querySelectorAll(".feed-container");
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabButtons.forEach(b => b.classList.remove("active"));
+        containers.forEach(c => c.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // ---- UTILITIES ----
     function formatDate(dateStr) {
       const date = new Date(dateStr);
-      if (isNaN(date)) return ""; // skip invalid dates
+      if (isNaN(date)) return "";
       return date.toLocaleString(undefined, {
         year: "numeric",
         month: "short",
@@ -70,62 +120,57 @@
     }
 
     async function fetchFeed(url) {
-      try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxyUrl);
-        const data = await res.json();
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(data.contents, "text/xml");
-
-        const isRSS = xml.querySelector("rss, channel");
-        const isAtom = xml.querySelector("feed");
-
-        let sourceTitle = url;
-        let items = [];
-
-        if (isRSS) {
-          sourceTitle = xml.querySelector("channel > title")?.textContent || url;
-          items = Array.from(xml.querySelectorAll("item")).map(item => ({
-            title: item.querySelector("title")?.textContent || "No title",
-            link: item.querySelector("link")?.textContent || "#",
-            description: item.querySelector("description")?.textContent || "",
-            pubDate: item.querySelector("pubDate")?.textContent || "",
-            source: sourceTitle,
-          }));
-        } else if (isAtom) {
-          sourceTitle = xml.querySelector("feed > title")?.textContent || url;
-          items = Array.from(xml.querySelectorAll("entry")).map(entry => ({
-            title: entry.querySelector("title")?.textContent || "No title",
-            link: entry.querySelector("link")?.getAttribute("href") || "#",
-            description: entry.querySelector("summary")?.textContent ||
-                         entry.querySelector("content")?.textContent || "",
-            pubDate: entry.querySelector("updated")?.textContent ||
-                     entry.querySelector("published")?.textContent || "",
-            source: sourceTitle,
-          }));
-        }
-
-        // Normalize date and push
-        items.forEach(item => {
-          const date = new Date(item.pubDate);
-          allItems.push({
-            ...item,
-            date,
-          });
-        });
-
-      } catch (err) {
-        console.error("Failed to load feed:", url, err);
-      }
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
+      const data = await res.json();
+      const parser = new DOMParser();
+      return parser.parseFromString(data.contents, "text/xml");
     }
 
-    async function loadAllFeeds() {
-      await Promise.all(feeds.map(fetchFeed));
+    async function loadRSSFeeds() {
+      const feedContainer = document.getElementById("rss");
+      const allItems = [];
 
-      // Sort all items by date (newest first)
+      for (const url of feeds) {
+        try {
+          const xml = await fetchFeed(url);
+          const isRSS = xml.querySelector("rss, channel");
+          const isAtom = xml.querySelector("feed");
+          let sourceTitle = url;
+          let items = [];
+
+          if (isRSS) {
+            sourceTitle = xml.querySelector("channel > title")?.textContent || url;
+            items = Array.from(xml.querySelectorAll("item")).map(item => ({
+              title: item.querySelector("title")?.textContent || "No title",
+              link: item.querySelector("link")?.textContent || "#",
+              description: item.querySelector("description")?.textContent || "",
+              pubDate: item.querySelector("pubDate")?.textContent || "",
+              source: sourceTitle,
+            }));
+          } else if (isAtom) {
+            sourceTitle = xml.querySelector("feed > title")?.textContent || url;
+            items = Array.from(xml.querySelectorAll("entry")).map(entry => ({
+              title: entry.querySelector("title")?.textContent || "No title",
+              link: entry.querySelector("link")?.getAttribute("href") || "#",
+              description: entry.querySelector("summary")?.textContent ||
+                           entry.querySelector("content")?.textContent || "",
+              pubDate: entry.querySelector("updated")?.textContent ||
+                       entry.querySelector("published")?.textContent || "",
+              source: sourceTitle,
+            }));
+          }
+
+          items.forEach(item => {
+            const date = new Date(item.pubDate);
+            allItems.push({ ...item, date });
+          });
+        } catch (err) {
+          console.error("Failed to load feed:", url, err);
+        }
+      }
+
       allItems.sort((a, b) => b.date - a.date);
-
-      // Render sorted items
       allItems.forEach(item => {
         const div = document.createElement("div");
         div.className = "feed-item";
@@ -140,7 +185,45 @@
       });
     }
 
-    loadAllFeeds();
+    async function loadYouTubeFeeds() {
+      const ytContainer = document.getElementById("youtube");
+      const allVideos = [];
+
+      for (const id of youtubeChannels) {
+        const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${id}`;
+        try {
+          const xml = await fetchFeed(url);
+          const title = xml.querySelector("feed > title")?.textContent || "Unknown Channel";
+          const videos = Array.from(xml.querySelectorAll("entry")).map(entry => ({
+            title: entry.querySelector("title")?.textContent || "No title",
+            link: entry.querySelector("link")?.getAttribute("href") || "#",
+            pubDate: entry.querySelector("published")?.textContent || "",
+            source: title,
+          }));
+          videos.forEach(v => {
+            allVideos.push({ ...v, date: new Date(v.pubDate) });
+          });
+        } catch (err) {
+          console.error("Failed to load YouTube feed:", id, err);
+        }
+      }
+
+      allVideos.sort((a, b) => b.date - a.date);
+      allVideos.forEach(video => {
+        const div = document.createElement("div");
+        div.className = "feed-item";
+        const formattedDate = formatDate(video.date);
+        div.innerHTML = `
+          <h2><a href="${video.link}" target="_blank" rel="noopener">${video.title}</a></h2>
+          <div class="source">Channel: ${video.source}</div>
+          ${formattedDate ? `<small>${formattedDate}</small>` : ""}
+        `;
+        ytContainer.appendChild(div);
+      });
+    }
+
+    loadRSSFeeds();
+    loadYouTubeFeeds();
   </script>
 </body>
 </html>
