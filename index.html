@@ -164,6 +164,13 @@
             "UC9-y-6csu5WGm29I7JiwpnA", // @Computerphile
             "UCNvsIonJdJ5E4EXMa65VYpA", // @ContraPoints
             "UCHTM9IknXs4ZHzwHqDjakoQ", // @DAngeloWallace
+            "UCCODtTcd5M1JavPCOr_Uydg", // @extrahistory
+            "UCuCkxoKLYO_EQ2GeFtbM_bw", // @halfasinteresting
+            "UCarEovlrD9QY-fy-Z6apIDQ", // @HasanMinhaj
+            "UCv_vLHiWVBh_FR9vbeuiY-A", // @HistoriaCivilis
+            "UCN9v4QG3AQEP3zuRvVs2dAg", // @HistoryTime
+            "UC1Zc6_BhPXiCWZlrZP4EsEg", // @historywithhilbert
+            "UC-pkCUlaRDMA--8LTWQDuHA", // @KennieJD
             // Add your own: "UCxxxxxxxxxxxxxxxxxxxxxx"
         ];
 
@@ -325,6 +332,7 @@
         function renderYouTubeVideos(videos, hideShorts) {
             const ytContainer = document.getElementById("youtube-list");
             ytContainer.innerHTML = "";
+
             const sorted = videos.sort((a, b) => b.date - a.date);
             sorted.forEach(video => {
                 if (hideShorts && video.isShort) return;
@@ -333,23 +341,47 @@
                 const div = document.createElement("div");
                 div.className = "feed-item";
                 div.style.display = "flex";
-                div.style.alignItems = "center";
+                div.style.alignItems = "flex-start";
                 div.style.gap = "12px";
+                div.style.marginBottom = "12px";
 
-                div.innerHTML = `
-      <img src="${video.thumbnail}" alt="Thumbnail" width="120" height="67" style="border-radius:6px; object-fit:cover;">
-      <div>
-        <h2 style="margin:0 0 4px;">
-          <a href="${video.link}" target="_blank" rel="noopener">${video.title}</a>
-          ${video.isShort ? '<span class="shorts-badge">SHORT</span>' : ""}
-        </h2>
-        <div class="source">Channel: ${video.source}</div>
-        ${formattedDate ? `<small>${formattedDate}</small>` : ""}
-      </div>
+                const imgContainer = document.createElement("div");
+                imgContainer.style.flexShrink = "0";
+                imgContainer.style.width = "160px";
+                imgContainer.style.height = "90px"; // 16:9 ratio
+                imgContainer.style.overflow = "hidden";
+                imgContainer.style.borderRadius = "6px";
+                imgContainer.style.background = "#ddd";
+
+                const img = document.createElement("img");
+                img.src = video.thumbnail;
+                img.alt = "Thumbnail";
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "cover";
+                img.style.display = "block";
+                img.style.cursor = "pointer";
+                img.addEventListener("click", () => window.open(video.link, "_blank"));
+
+                imgContainer.appendChild(img);
+
+                const textBlock = document.createElement("div");
+                textBlock.style.flex = "1";
+                textBlock.innerHTML = `
+      <h2 style="margin:0 0 4px;">
+        <a href="${video.link}" target="_blank" rel="noopener">${video.title}</a>
+        ${video.isShort ? '<span class="shorts-badge">SHORT</span>' : ""}
+      </h2>
+      <div class="source">Channel: ${video.source}</div>
+      ${formattedDate ? `<small>${formattedDate}</small>` : ""}
     `;
+
+                div.appendChild(imgContainer);
+                div.appendChild(textBlock);
                 ytContainer.appendChild(div);
             });
         }
+
 
 
         loadRSSFeeds();
