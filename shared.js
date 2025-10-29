@@ -68,16 +68,21 @@ async function fetchFeed(url) {
     try {
       const res = await fetch(proxyUrl);
       if (!res.ok) continue;
+
       const text = await res.text();
+      console.log("Fetched text from", proxyUrl, ":", text.slice(0, 200)); // debug
       const parser = new DOMParser();
-      return parser.parseFromString(text, "text/xml");
+      const xml = parser.parseFromString(text, "text/xml");
+
+      // basic sanity check
+      if (xml.querySelector("item, entry")) return xml;
     } catch (err) {
-      // try next proxy
       console.warn("Proxy failed:", proxyUrl, err);
     }
   }
-  throw new Error("All proxy attempts failed.");
+  throw new Error("All proxy attempts failed for: " + url);
 }
+
 
 // Parse a YouTube channel feed (videos.xml) and return an array of video objects
 async function fetchYouTubeChannelFeed(channelId) {

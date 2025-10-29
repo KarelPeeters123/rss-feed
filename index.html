@@ -5,18 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My RSS & Atom Feed Aggregator</title>
   <style>
-    /* keep your original styling here (copied from your version) */
     body { font-family: Arial, sans-serif; background:#fafafa; color:#333; max-width:800px; margin:40px auto; padding:0 20px; }
     h1 { text-align:center; }
     nav { display:flex; justify-content:center; margin-bottom:20px; }
     .tab-button { background:#eee; border:none; padding:10px 20px; cursor:pointer; margin:0 5px; border-radius:6px; font-size:1rem; transition:background .3s; }
     .tab-button.active { background:#0066cc; color:white; }
+
     .feed-item { border-bottom:1px solid #ddd; padding:10px 0; }
     .feed-item h2 { font-size:1.1rem; margin:0; }
     .feed-item a { color:#0066cc; text-decoration:none; }
     .feed-item a:hover { text-decoration:underline; }
     .source { color:#777; font-size:.9rem; }
     small { color:#999; font-size:.85rem; }
+
+    /* Loading styles */
     .loading { text-align:center; padding:40px; font-size:1.2rem; color:#666; }
     .spinner { display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top-color:#0066cc; border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -30,6 +32,9 @@
     <a href="youtube.html"><button class="tab-button">YouTube</button></a>
   </nav>
 
+  <div id="rss-loading" class="loading">
+    <span class="spinner"></span> Loading RSS feeds...
+  </div>
   <div id="rss"></div>
 
   <script src="shared.js"></script>
@@ -41,10 +46,12 @@
       "https://github.blog/feed/"
     ];
 
-    const { formatDate, fetchFeed } = window.shared;
-
     async function loadRSSFeeds() {
       const feedContainer = document.getElementById("rss");
+      const loading = document.getElementById("rss-loading");
+      loading.style.display = "block";
+      feedContainer.innerHTML = '';
+
       const allItems = [];
 
       for (const url of feeds) {
@@ -54,7 +61,7 @@
           const isAtom = xml.querySelector("feed");
           let sourceTitle = url;
           let items = [];
-
+            console.log("Parsing feed:", url, isRSS ? "RSS" : isAtom ? "Atom" : "Unknown");
           if (isRSS) {
             sourceTitle = xml.querySelector("channel > title")?.textContent || url;
             items = Array.from(xml.querySelectorAll("item")).map(item => ({
@@ -76,7 +83,7 @@
               source: sourceTitle,
             }));
           }
-
+          console.log(`Loaded ${items.length} items from ${sourceTitle}`);
           items.forEach(item => {
             const date = new Date(item.pubDate);
             allItems.push({ ...item, date });
@@ -86,6 +93,8 @@
         }
       }
 
+      // Sort and render
+      console.log("Total items loaded:", allItems.length);
       allItems.sort((a, b) => b.date - a.date);
       allItems.forEach(item => {
         const div = document.createElement("div");
@@ -99,6 +108,8 @@
         `;
         feedContainer.appendChild(div);
       });
+
+      loading.style.display = "none";
     }
 
     loadRSSFeeds();
