@@ -56,7 +56,7 @@ function formatDate(dateStr) {
     });
 }
 
-proxyList: [
+proxyList = [
     url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
     url => `https://thingproxy.freeboard.io/fetch/${url}`,
