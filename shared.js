@@ -20,7 +20,6 @@ const youtubeChannels = [
   "UCv_vLHiWVBh_FR9vbeuiY-A", // @HistoriaCivilis
   "UCN9v4QG3AQEP3zuRvVs2dAg", // @HistoryTime
   "UC1Zc6_BhPXiCWZlrZP4EsEg", // @historywithhilbert
-  "UC-pkCUlaRDMA--8LTWQDuHA", // @KennieJD
   "UCbuf70y__Wh3MRxZcbj778Q", // @KhadijaMbowe
   "UCG1h-Wqjtwz7uUANw6gazRw", // @LindsayEllisVids
   "UCEeL4jELzooI7cyrouQzoJg", // @littlestjoel
@@ -34,15 +33,12 @@ const youtubeChannels = [
   "UCedsqpl7jaIb8BiaUFuC9KQ", // @pastagrannies
   "UCdoRUr0SUpfGQC4vsXZeovg", // @PeoplesDispatch
   "UCP5tjEmvPItGyLhmjdwP7Ww", // @RealLifeLore
-  "UCZYTClx2T1of7BRZ86-8fow", // @SciShow
   "UCKUm503onGg3NatpBtTWHkQ", // @SkipIntroYT
-  "UCx4LtmN0_hX915pmAapZw4w", // @tajamna3511
   "UCYIEv9W7RmdpvFkHX7IEmyg", // @taylortomlinsoncomedy
   "UCaTSjmqzOO-P8HmtVW3t7sA", // @ToddintheShadows
   "UCBa659QWEk1AI4Tg--mrJ2A", // @TomScottGo
   "UCHnyfMqiRRG1u-2MsSQLbXA", // @veritasium
   "UCLXo7UDZvByw2ixzpQCufnA", // @Vox
-  "UC6nSFpj9HTCZ5t-N3Rm3-HA", // @Vsauce
   "UCeYy3kNtk_vhVSxZhi1WGJw", // @WILTY_TV
 ];
 
@@ -148,7 +144,7 @@ function createVideoElement(video) {
     iframe.allowFullscreen = true;
     // Prefer videoId embed when available, otherwise fallback to full link as embed
     const id = video.videoId || extractVideoIdFromUrl(video.link);
-    iframe.src = id ? `https://www.youtube.com/embed/${id}` : video.link;
+    iframe.src = id ? `https://www.youtube-nocookie.com/embed/${id}` : video.link;
     // Replace imgBox contents with iframe
     imgBox.innerHTML = "";
     imgBox.style.width = "320px";

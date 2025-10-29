@@ -24,12 +24,6 @@
     .source { color:#777; font-size:.9rem; }
     small { color:#999; font-size:.85rem; }
     .shorts-badge { background:#ff0000; color:white; font-size:.75rem; padding:2px 6px; border-radius:4px; margin-left:6px; }
-
-    /* modal */
-    .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
-    .modal.open { display:flex; }
-    .modal iframe { width:90%; max-width:900px; aspect-ratio:16/9; border:0; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.6); background:#000; }
-    .modal-close { position:absolute; top:18px; right:26px; color:white; font-size:2rem; cursor:pointer; background:transparent; border:none; line-height:1; }
   </style>
 </head>
 <body>
@@ -47,49 +41,11 @@
   <div id="youtube-loading" class="loading"><span class="spinner"></span> Loading YouTube videos...</div>
   <div id="youtube-list"></div>
 
-  <!-- Modal for embedded player -->
-  <div id="video-modal" class="modal" aria-hidden="true">
-    <button id="close-modal" class="modal-close" aria-label="Close">&times;</button>
-    <iframe id="video-frame" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-  </div>
-
   <script src="shared.js"></script>
   <script>
     const ytContainer = document.getElementById("youtube-list");
     const loading = document.getElementById("youtube-loading");
     const hideShortsCheckbox = document.getElementById("hideShorts");
-    const modal = document.getElementById("video-modal");
-    const videoFrame = document.getElementById("video-frame");
-    const closeModal = document.getElementById("close-modal");
-
-    function extractVideoId(url) {
-      try {
-        const u = new URL(url);
-        if (u.hostname === 'youtu.be') return u.pathname.slice(1);
-        if (u.pathname.startsWith('/shorts/')) return u.pathname.split('/shorts/')[1];
-        return u.searchParams.get('v') || null;
-      } catch {
-        const m = url.match(/(?:\/embed\/|\/v\/|watch\?v=|shorts\/|youtu\.be\/)([a-zA-Z0-9_-]+)/);
-        return m ? m[1] : null;
-      }
-    }
-
-    function openEmbed(videoUrl) {
-      const id = extractVideoId(videoUrl);
-      if (!id) return;
-      videoFrame.src = `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
-      modal.classList.add('open');
-      modal.setAttribute('aria-hidden', 'false');
-    }
-
-    function closeEmbed() {
-      videoFrame.src = '';
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden', 'true');
-    }
-
-    closeModal.addEventListener('click', closeEmbed);
-    modal.addEventListener('click', e => { if (e.target === modal) closeEmbed(); });
 
     async function loadYouTubeFeeds() {
       loading.style.display = 'block';
@@ -119,18 +75,17 @@
 
       videos.forEach(video => {
         if (hideShorts && video.isShort) return;
-        const el = window.shared.createVideoElement(video);
 
-        // override anchor & image click to open modal
-        const anchor = el.querySelector('a');
-        if(anchor) anchor.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); openEmbed(video.link); });
-        const img = el.querySelector('img');
-        if(img) img.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); openEmbed(video.link); });
+        const div = window.shared.createVideoElement(video);
 
-        el.tabIndex = 0;
-        el.addEventListener('keydown', ev => { if(ev.key==='Enter'||ev.key===' ') { ev.preventDefault(); openEmbed(video.link); } });
+        // Override clicks to just open the YouTube link
+        const anchor = div.querySelector('a');
+        if(anchor) anchor.setAttribute('target','_blank');
 
-        ytContainer.appendChild(el);
+        const img = div.querySelector('img');
+        if(img) img.addEventListener('click', () => window.open(video.link, '_blank'));
+
+        ytContainer.appendChild(div);
       });
     }
 
