@@ -1,415 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My RSS & Atom Feed Aggregator</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #fafafa;
-            color: #333;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-
-        h1 {
-            text-align: center;
-        }
-
-        nav {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-
-        .tab-button {
-            background: #eee;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            margin: 0 5px;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: background 0.3s;
-        }
-
-        .tab-button.active {
-            background: #0066cc;
-            color: white;
-        }
-
-        .feed-container {
-            display: none;
-        }
-
-        .feed-container.active {
-            display: block;
-        }
-
-        .feed-item {
-            border-bottom: 1px solid #ddd;
-            padding: 10px 0;
-        }
-
-        .feed-item h2 {
-            font-size: 1.1rem;
-            margin: 0;
-        }
-
-        .feed-item a {
-            color: #0066cc;
-            text-decoration: none;
-        }
-
-        .feed-item a:hover {
-            text-decoration: underline;
-        }
-
-        .source {
-            color: #777;
-            font-size: 0.9rem;
-        }
-
-        small {
-            color: #999;
-            font-size: 0.85rem;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 1.2rem;
-            color: #666;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            border: 3px solid #ccc;
-            border-top-color: #0066cc;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .shorts-badge {
-            background: #ff0000;
-            color: white;
-            font-size: 0.75rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 6px;
-        }
-
-        .controls {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My RSS & Atom Feed Aggregator</title>
+  <style>
+    /* keep your original styling here (copied from your version) */
+    body { font-family: Arial, sans-serif; background:#fafafa; color:#333; max-width:800px; margin:40px auto; padding:0 20px; }
+    h1 { text-align:center; }
+    nav { display:flex; justify-content:center; margin-bottom:20px; }
+    .tab-button { background:#eee; border:none; padding:10px 20px; cursor:pointer; margin:0 5px; border-radius:6px; font-size:1rem; transition:background .3s; }
+    .tab-button.active { background:#0066cc; color:white; }
+    .feed-item { border-bottom:1px solid #ddd; padding:10px 0; }
+    .feed-item h2 { font-size:1.1rem; margin:0; }
+    .feed-item a { color:#0066cc; text-decoration:none; }
+    .feed-item a:hover { text-decoration:underline; }
+    .source { color:#777; font-size:.9rem; }
+    small { color:#999; font-size:.85rem; }
+    .loading { text-align:center; padding:40px; font-size:1.2rem; color:#666; }
+    .spinner { display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top-color:#0066cc; border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
-
 <body>
-    <h1>My RSS & Atom Feed Aggregator</h1>
+  <h1>My RSS & Atom Feed Aggregator</h1>
 
-    <nav>
-        <button class="tab-button active" data-tab="rss">Feeds</button>
-        <button class="tab-button" data-tab="youtube">YouTube</button>
-    </nav>
+  <nav>
+    <button class="tab-button active">Feeds</button>
+    <a href="youtube.html"><button class="tab-button">YouTube</button></a>
+  </nav>
 
-    <div id="rss" class="feed-container active"></div>
+  <div id="rss"></div>
 
-    <div id="youtube" class="feed-container">
-        <div class="controls">
-            <label>
-                <input type="checkbox" id="hideShorts" checked />
-                Hide Shorts
-            </label>
-        </div>
-        <div id="youtube-loading" class="loading">
-            <span class="spinner"></span> Loading YouTube videos...
-        </div>
-        <div id="youtube-list"></div>
-    </div>
+  <script src="shared.js"></script>
+  <script>
+    const feeds = [
+      "https://www.rnz.co.nz/rss/national.xml",
+      "https://www.rnz.co.nz/rss/business.xml",
+      "https://www.stuff.co.nz/rss",
+      "https://github.blog/feed/"
+    ];
 
-    <script>
-        // --- RSS / Atom FEEDS ---
-        const feeds = [
-            "https://www.rnz.co.nz/rss/national.xml",
-            "https://www.rnz.co.nz/rss/business.xml",
-            "https://www.stuff.co.nz/rss",
-            "https://github.blog/feed/"
-        ];
+    const { formatDate, fetchFeed } = window.shared;
 
-        // --- YouTube CHANNEL IDs ---
-        const youtubeChannels = [
-            "UC-kM5kL9CgjN9s9pim089gg", // @AdamConover
-            "UCaN8DZdc8EHo5y1LsQWMiig",  // @BigJoel
-            "UCYO_jab_esuFRV4b17AJtAw",  // @3Blue1Brown
-            "UC-LM91jkqJdWFvm9B5G-w7Q", // @alanthefisher
-            "UCGzP7puUuNiDRnC6_QksAHA", // @artisanalcheese
-            "UCI1XS_GkLGDOgf8YLaaXNRA", // @CalebCity
-            "UCr3cBLTYmIK9kY0F_OdFWFQ", // @CasuallyExplained
-            "UCEHCDn_BBnk3uTK1M64ptyw", // @RanveerBrar
-            "UC9-y-6csu5WGm29I7JiwpnA", // @Computerphile
-            "UCNvsIonJdJ5E4EXMa65VYpA", // @ContraPoints
-            "UCHTM9IknXs4ZHzwHqDjakoQ", // @DAngeloWallace
-            "UCCODtTcd5M1JavPCOr_Uydg", // @extrahistory
-            "UCuCkxoKLYO_EQ2GeFtbM_bw", // @halfasinteresting
-            "UCarEovlrD9QY-fy-Z6apIDQ", // @HasanMinhaj
-            "UCv_vLHiWVBh_FR9vbeuiY-A", // @HistoriaCivilis
-            "UCN9v4QG3AQEP3zuRvVs2dAg", // @HistoryTime
-            "UC1Zc6_BhPXiCWZlrZP4EsEg", // @historywithhilbert
-            "UC-pkCUlaRDMA--8LTWQDuHA", // @KennieJD
-            "UCbuf70y__Wh3MRxZcbj778Q", // @KhadijaMbowe
-            "UCG1h-Wqjtwz7uUANw6gazRw", // @LindsayEllisVids
-            "UCEeL4jELzooI7cyrouQzoJg", // @littlestjoel
-            "UCPdaxSov0mgwh77JvjQO2jQ", // @ManCarryingThing
-            "UCpBRZBzWQ_cCc_9zKG08L-g", // @Marxism_Today
-            "UCeiYXex_fwgYDonaTcSIk6w", // @MinuteEarth
-            "UCUHW94eEFW7hkUMVaZz4eDg", // @MinutePhysics
-            "UC0intLFzLaudFG-xAvUEO-A", // @NotJustBikes
-            "UCoxcjq-8xIDTYp3uz647V5A", // @numberphile
-            "UCodbH5mUeF-m_BsNueRDjcw", // @OverlySarcasticProductions
-            "UCedsqpl7jaIb8BiaUFuC9KQ", // @pastagrannies
-            "UCdoRUr0SUpfGQC4vsXZeovg", // @PeoplesDispatch
-            "UCP5tjEmvPItGyLhmjdwP7Ww", // @RealLifeLore
-            "UCZYTClx2T1of7BRZ86-8fow", // @SciShow
-            "UCKUm503onGg3NatpBtTWHkQ", // @SkipIntroYT
-            "UCx4LtmN0_hX915pmAapZw4w", // @tajamna3511
-            "UCYIEv9W7RmdpvFkHX7IEmyg", // @taylortomlinsoncomedy
-            "UCaTSjmqzOO-P8HmtVW3t7sA", // @ToddintheShadows
-            "UCBa659QWEk1AI4Tg--mrJ2A", // @TomScottGo
-            "UCHnyfMqiRRG1u-2MsSQLbXA", // @veritasium
-            "UCLXo7UDZvByw2ixzpQCufnA", // @Vox
-            "UC6nSFpj9HTCZ5t-N3Rm3-HA", // @Vsauce
-            "UCeYy3kNtk_vhVSxZhi1WGJw", // @WILTY_TV
-            // Add your own: "UCxxxxxxxxxxxxxxxxxxxxxx"
-        ];
+    async function loadRSSFeeds() {
+      const feedContainer = document.getElementById("rss");
+      const allItems = [];
 
-        // ---- TAB HANDLING ----
-        const tabButtons = document.querySelectorAll(".tab-button");
-        const containers = document.querySelectorAll(".feed-container");
+      for (const url of feeds) {
+        try {
+          const xml = await fetchFeed(url);
+          const isRSS = xml.querySelector("rss, channel");
+          const isAtom = xml.querySelector("feed");
+          let sourceTitle = url;
+          let items = [];
 
-        tabButtons.forEach(btn => {
-            btn.addEventListener("click", () => {
-                tabButtons.forEach(b => b.classList.remove("active"));
-                containers.forEach(c => c.classList.remove("active"));
-                btn.classList.add("active");
-                document.getElementById(btn.dataset.tab).classList.add("active");
-            });
-        });
+          if (isRSS) {
+            sourceTitle = xml.querySelector("channel > title")?.textContent || url;
+            items = Array.from(xml.querySelectorAll("item")).map(item => ({
+              title: item.querySelector("title")?.textContent || "No title",
+              link: item.querySelector("link")?.textContent || "#",
+              description: item.querySelector("description")?.textContent || "",
+              pubDate: item.querySelector("pubDate")?.textContent || "",
+              source: sourceTitle,
+            }));
+          } else if (isAtom) {
+            sourceTitle = xml.querySelector("feed > title")?.textContent || url;
+            items = Array.from(xml.querySelectorAll("entry")).map(entry => ({
+              title: entry.querySelector("title")?.textContent || "No title",
+              link: entry.querySelector("link")?.getAttribute("href") || "#",
+              description: entry.querySelector("summary")?.textContent ||
+                entry.querySelector("content")?.textContent || "",
+              pubDate: entry.querySelector("updated")?.textContent ||
+                entry.querySelector("published")?.textContent || "",
+              source: sourceTitle,
+            }));
+          }
 
-        // ---- UTILITIES ----
-        function formatDate(dateStr) {
-            const date = new Date(dateStr);
-            if (isNaN(date)) return "";
-            return date.toLocaleString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-            });
+          items.forEach(item => {
+            const date = new Date(item.pubDate);
+            allItems.push({ ...item, date });
+          });
+        } catch (err) {
+          console.error("Failed to load feed:", url, err);
         }
+      }
 
-        async function fetchFeed(url) {
-            const proxies = [
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-                `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(url)}`
-            ];
-
-            for (const proxyUrl of proxies) {
-                try {
-                    const res = await fetch(proxyUrl);
-                    if (!res.ok) continue;
-                    const text = await res.text();
-                    const parser = new DOMParser();
-                    return parser.parseFromString(text, "text/xml");
-                } catch (err) {
-                    console.warn("Proxy failed:", proxyUrl, err);
-                }
-            }
-
-            throw new Error("All proxy attempts failed.");
-        }
-
-
-        // ---- LOAD RSS ----
-        async function loadRSSFeeds() {
-            const feedContainer = document.getElementById("rss");
-            const allItems = [];
-
-            for (const url of feeds) {
-                try {
-                    const xml = await fetchFeed(url);
-                    const isRSS = xml.querySelector("rss, channel");
-                    const isAtom = xml.querySelector("feed");
-                    let sourceTitle = url;
-                    let items = [];
-
-                    if (isRSS) {
-                        sourceTitle = xml.querySelector("channel > title")?.textContent || url;
-                        items = Array.from(xml.querySelectorAll("item")).map(item => ({
-                            title: item.querySelector("title")?.textContent || "No title",
-                            link: item.querySelector("link")?.textContent || "#",
-                            description: item.querySelector("description")?.textContent || "",
-                            pubDate: item.querySelector("pubDate")?.textContent || "",
-                            source: sourceTitle,
-                        }));
-                    } else if (isAtom) {
-                        sourceTitle = xml.querySelector("feed > title")?.textContent || url;
-                        items = Array.from(xml.querySelectorAll("entry")).map(entry => ({
-                            title: entry.querySelector("title")?.textContent || "No title",
-                            link: entry.querySelector("link")?.getAttribute("href") || "#",
-                            description: entry.querySelector("summary")?.textContent ||
-                                entry.querySelector("content")?.textContent || "",
-                            pubDate: entry.querySelector("updated")?.textContent ||
-                                entry.querySelector("published")?.textContent || "",
-                            source: sourceTitle,
-                        }));
-                    }
-
-                    items.forEach(item => {
-                        const date = new Date(item.pubDate);
-                        allItems.push({ ...item, date });
-                    });
-                } catch (err) {
-                    console.error("Failed to load feed:", url, err);
-                }
-            }
-
-            allItems.sort((a, b) => b.date - a.date);
-            allItems.forEach(item => {
-                const div = document.createElement("div");
-                div.className = "feed-item";
-                const formattedDate = formatDate(item.date);
-                div.innerHTML = `
+      allItems.sort((a, b) => b.date - a.date);
+      allItems.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "feed-item";
+        const formattedDate = formatDate(item.date);
+        div.innerHTML = `
           <h2><a href="${item.link}" target="_blank" rel="noopener">${item.title}</a></h2>
           <div class="source">Source: ${item.source}</div>
           <div>${item.description}</div>
           ${formattedDate ? `<small>${formattedDate}</small>` : ""}
         `;
-                feedContainer.appendChild(div);
-            });
-        }
+        feedContainer.appendChild(div);
+      });
+    }
 
-        // ---- LOAD YOUTUBE ----
-        // ---- LOAD YOUTUBE ----
-        async function loadYouTubeFeeds() {
-            const ytContainer = document.getElementById("youtube-list");
-            const loadingIndicator = document.getElementById("youtube-loading");
-            const hideShortsCheckbox = document.getElementById("hideShorts");
-
-            const allVideos = [];
-            loadingIndicator.style.display = "block";
-
-            for (const id of youtubeChannels) {
-                const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${id}`;
-                try {
-                    const xml = await fetchFeed(url);
-                    const title = xml.querySelector("feed > title")?.textContent || "Unknown Channel";
-                    const videos = Array.from(xml.querySelectorAll("entry")).map(entry => {
-                        const link = entry.querySelector("link")?.getAttribute("href") || "#";
-                        const isShort = link.includes("/shorts/");
-                        const videoId = entry.querySelector("yt\\:videoId, videoId")?.textContent || "";
-                        const thumb =
-                            entry.querySelector("media\\:thumbnail")?.getAttribute("url") ||
-                            (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "");
-
-                        return {
-                            title: entry.querySelector("title")?.textContent || "No title",
-                            link,
-                            pubDate: entry.querySelector("published")?.textContent || "",
-                            source: title,
-                            isShort,
-                            thumbnail: thumb,
-                        };
-                    });
-                    videos.forEach(v => {
-                        allVideos.push({ ...v, date: new Date(v.pubDate) });
-                    });
-                } catch (err) {
-                    console.error("Failed to load YouTube feed:", id, err);
-                }
-            }
-
-            loadingIndicator.style.display = "none";
-            renderYouTubeVideos(allVideos, hideShortsCheckbox.checked);
-
-            hideShortsCheckbox.addEventListener("change", () => {
-                renderYouTubeVideos(allVideos, hideShortsCheckbox.checked);
-            });
-        }
-
-        function renderYouTubeVideos(videos, hideShorts) {
-            const ytContainer = document.getElementById("youtube-list");
-            ytContainer.innerHTML = "";
-
-            const sorted = videos.sort((a, b) => b.date - a.date);
-            sorted.forEach(video => {
-                if (hideShorts && video.isShort) return;
-
-                const formattedDate = formatDate(video.date);
-                const div = document.createElement("div");
-                div.className = "feed-item";
-                div.style.display = "flex";
-                div.style.alignItems = "flex-start";
-                div.style.gap = "12px";
-                div.style.marginBottom = "12px";
-
-                const imgContainer = document.createElement("div");
-                imgContainer.style.flexShrink = "0";
-                imgContainer.style.width = "160px";
-                imgContainer.style.height = "90px"; // 16:9 ratio
-                imgContainer.style.overflow = "hidden";
-                imgContainer.style.borderRadius = "6px";
-                imgContainer.style.background = "#ddd";
-
-                const img = document.createElement("img");
-                img.src = video.thumbnail;
-                img.alt = "Thumbnail";
-                img.style.width = "100%";
-                img.style.height = "100%";
-                img.style.objectFit = "cover";
-                img.style.display = "block";
-                img.style.cursor = "pointer";
-                img.addEventListener("click", () => window.open(video.link, "_blank"));
-
-                imgContainer.appendChild(img);
-
-                const textBlock = document.createElement("div");
-                textBlock.style.flex = "1";
-                textBlock.innerHTML = `
-      <h2 style="margin:0 0 4px;">
-        <a href="${video.link}" target="_blank" rel="noopener">${video.title}</a>
-        ${video.isShort ? '<span class="shorts-badge">SHORT</span>' : ""}
-      </h2>
-      <div class="source">Channel: ${video.source}</div>
-      ${formattedDate ? `<small>${formattedDate}</small>` : ""}
-    `;
-
-                div.appendChild(imgContainer);
-                div.appendChild(textBlock);
-                ytContainer.appendChild(div);
-            });
-        }
-
-
-
-        loadRSSFeeds();
-        loadYouTubeFeeds();
-    </script>
+    loadRSSFeeds();
+  </script>
 </body>
-
 </html>

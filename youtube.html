@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Feed Aggregator</title>
+  <style>
+    /* page layout (kept consistent with your previous styling) */
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+      color: #333;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 { text-align:center; }
+    nav { display:flex; justify-content:center; margin-bottom:20px; }
+    .tab-button {
+      background:#eee; border:none; padding:10px 20px; cursor:pointer; margin:0 5px;
+      border-radius:6px; font-size:1rem; transition:background .3s;
+    }
+    .tab-button.active { background:#0066cc; color:white; }
+
+    /* feed item */
+    .feed-item {
+      border-bottom:1px solid #ddd;
+      padding:10px 0;
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .feed-item img {
+      width:160px;
+      height:90px;
+      object-fit:cover;
+      border-radius:6px;
+      cursor:pointer;
+      background:#ddd;
+      flex-shrink:0;
+    }
+    .feed-item h2 { margin:0 0 4px; font-size:1.05rem; }
+    .feed-item a { color:#0066cc; text-decoration:none; }
+    .feed-item a:hover { text-decoration:underline; }
+    .source { color:#777; font-size:.9rem; }
+    small { color:#999; font-size:.85rem; }
+    .shorts-badge { background:#ff0000; color:white; font-size:.75rem; padding:2px 6px; border-radius:4px; margin-left:6px; }
+
+    .controls { text-align:center; margin-bottom:20px; }
+
+    .loading { text-align:center; padding:40px; font-size:1.2rem; color:#666; }
+    .spinner {
+      display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top-color:#0066cc;
+      border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* modal overlay for embed */
+    .modal {
+      display:none;
+      position:fixed;
+      z-index:1000;
+      left:0; top:0;
+      width:100%; height:100%;
+      background: rgba(0,0,0,0.8);
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      box-sizing:border-box;
+    }
+    .modal.open { display:flex; }
+    .modal iframe {
+      width:90%;
+      max-width:900px;
+      aspect-ratio:16/9;
+      border:0;
+      border-radius:12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+      background: #000;
+    }
+    .modal-close {
+      position:absolute;
+      top:18px;
+      right:26px;
+      color:white;
+      font-size:2rem;
+      cursor:pointer;
+      background:transparent;
+      border:none;
+      line-height:1;
+    }
+    @media (max-width:520px) {
+      .feed-item { gap:10px; }
+      .feed-item img { width:140px; height:78px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>YouTube Feed Aggregator</h1>
+
+  <nav>
+    <a href="index.html"><button class="tab-button">Feeds</button></a>
+    <button class="tab-button active">YouTube</button>
+  </nav>
+
+  <div class="controls">
+    <label><input type="checkbox" id="hideShorts" checked /> Hide Shorts</label>
+  </div>
+
+  <div id="youtube-loading" class="loading">
+    <span class="spinner"></span> Loading YouTube videos...
+  </div>
+
+  <div id="youtube-list"></div>
+
+  <!-- Modal for embedded player -->
+  <div id="video-modal" class="modal" aria-hidden="true">
+    <button id="close-modal" class="modal-close" aria-label="Close">&times;</button>
+    <iframe id="video-frame" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+
+  <script src="shared.js"></script>
+  <script>
+    const ytContainer = document.getElementById("youtube-list");
+    const loading = document.getElementById("youtube-loading");
+    const hideShortsCheckbox = document.getElementById("hideShorts");
+    const modal = document.getElementById("video-modal");
+    const videoFrame = document.getElementById("video-frame");
+    const closeModal = document.getElementById("close-modal");
+
+    // Helper to extract ID (works for /watch?v=, youtu.be/, and /shorts/)
+    function extractVideoId(url) {
+      try {
+        const u = new URL(url);
+        if (u.hostname === 'youtu.be') return u.pathname.slice(1);
+        if (u.pathname.startsWith('/shorts/')) return u.pathname.split('/shorts/')[1];
+        const v = u.searchParams.get('v');
+        if (v) return v;
+        // fallback: try regex
+        const m1 = url.match(/(?:\/embed\/|\/v\/|watch\?v=)([a-zA-Z0-9_-]+)/);
+        return m1 ? m1[1] : null;
+      } catch (e) {
+        // fallback simple regex
+        const m2 = url.match(/shorts\/([a-zA-Z0-9_-]+)/) || url.match(/v=([a-zA-Z0-9_-]+)/) || url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+        return m2 ? m2[1] : null;
+      }
+    }
+
+    // Open modal with embed
+    function openEmbed(videoUrl) {
+      const id = extractVideoId(videoUrl);
+      if (!id) return;
+      videoFrame.src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeEmbed() {
+      videoFrame.src = '';
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    closeModal.addEventListener('click', closeEmbed);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeEmbed();
+    });
+
+    // load feeds using shared.js
+    async function loadYouTubeFeeds() {
+      loading.style.display = 'block';
+      ytContainer.innerHTML = '';
+      const allVideos = [];
+
+      for (const id of window.shared.youtubeChannels) {
+        try {
+          const vids = await window.shared.fetchYouTubeChannelFeed(id);
+          vids.forEach(v => allVideos.push(v));
+        } catch (err) {
+          console.error('Failed to load channel:', id, err);
+        }
+      }
+
+      loading.style.display = 'none';
+      renderVideos(allVideos, hideShortsCheckbox.checked);
+
+      hideShortsCheckbox.addEventListener('change', () => {
+        renderVideos(allVideos, hideShortsCheckbox.checked);
+      });
+    }
+
+    function renderVideos(videos, hideShorts) {
+      ytContainer.innerHTML = '';
+      videos.sort((a,b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+      videos.forEach(video => {
+        if (hideShorts && video.isShort) return;
+
+        // create DOM element using shared helper
+        const el = window.shared.createVideoElement(video);
+
+        // prevent the anchor from navigating — instead open modal embed
+        const anchor = el.querySelector('a');
+        if (anchor) {
+          anchor.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            openEmbed(video.link);
+          });
+        }
+
+        // also open embed when clicking the thumbnail image (img inside the element)
+        const img = el.querySelector('img');
+        if (img) {
+          img.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            openEmbed(video.link);
+          });
+        }
+
+        // For keyboard accessibility: open on Enter when focused
+        el.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            openEmbed(video.link);
+          }
+        });
+        // make the container focusable for keyboard interaction
+        el.tabIndex = 0;
+
+        ytContainer.appendChild(el);
+      });
+    }
+
+    // start
+    loadYouTubeFeeds();
+  </script>
+</body>
+</html>
