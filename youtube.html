@@ -16,6 +16,23 @@
     .spinner { display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top-color:#0066cc; border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Progress bar */
+    .progress-bar-container {
+      width: 100%;
+      background: #eee;
+      border-radius: 6px;
+      height: 10px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #0066cc;
+      transition: width 0.3s ease;
+    }
+
     .feed-item { border-bottom:1px solid #ddd; padding:10px 0; display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; cursor:pointer; }
     .feed-item img { width:160px; height:90px; object-fit:cover; border-radius:6px; background:#ddd; flex-shrink:0; }
     .feed-item h2 { margin:0 0 4px; font-size:1.05rem; }
@@ -38,7 +55,13 @@
     <label><input type="checkbox" id="hideShorts" checked /> Hide Shorts</label>
   </div>
 
-  <div id="youtube-loading" class="loading"><span class="spinner"></span> Loading YouTube videos...</div>
+  <div id="youtube-loading" class="loading">
+    <span class="spinner"></span> Loading YouTube videos...
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </div>
+
   <div id="youtube-list"></div>
 
   <script src="shared.js"></script>
@@ -46,11 +69,15 @@
     const ytContainer = document.getElementById("youtube-list");
     const loading = document.getElementById("youtube-loading");
     const hideShortsCheckbox = document.getElementById("hideShorts");
+    const progressBar = document.getElementById("progress-bar");
 
     async function loadYouTubeFeeds() {
       loading.style.display = 'block';
       ytContainer.innerHTML = '';
       const allVideos = [];
+
+      const total = window.shared.youtubeChannels.length;
+      let loaded = 0;
 
       for (const id of window.shared.youtubeChannels) {
         try {
@@ -59,6 +86,11 @@
         } catch (err) {
           console.error('Failed to load channel:', id, err);
         }
+
+        // Update progress
+        loaded++;
+        const progress = Math.round((loaded / total) * 100);
+        progressBar.style.width = progress + '%';
       }
 
       loading.style.display = 'none';
@@ -78,7 +110,7 @@
 
         const div = window.shared.createVideoElement(video);
 
-        // Override clicks to just open the YouTube link
+        // Open link on click
         const anchor = div.querySelector('a');
         if(anchor) anchor.setAttribute('target','_blank');
 

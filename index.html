@@ -22,6 +22,10 @@
     .loading { text-align:center; padding:40px; font-size:1.2rem; color:#666; }
     .spinner { display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top-color:#0066cc; border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Progress bar */
+    .progress-container { width:60%; margin:16px auto 0; background:#eee; border-radius:8px; height:10px; overflow:hidden; }
+    .progress-bar { height:100%; width:0%; background:#0066cc; transition:width 0.3s; }
   </style>
 </head>
 <body>
@@ -34,6 +38,7 @@
 
   <div id="rss-loading" class="loading">
     <span class="spinner"></span> Loading RSS feeds...
+    <div class="progress-container"><div class="progress-bar" id="rss-progress"></div></div>
   </div>
   <div id="rss"></div>
 
@@ -41,18 +46,19 @@
   <script>
     const feeds = [
       "https://www.rnz.co.nz/rss/national.xml",
-      "https://www.rnz.co.nz/rss/business.xml",
       "https://www.stuff.co.nz/rss",
-      "https://github.blog/feed/"
+      "https://www.nzherald.co.nz/arc/outboundfeeds/rss/curated/78/?outputType=xml&_website=nzh"
     ];
 
     async function loadRSSFeeds() {
       const feedContainer = document.getElementById("rss");
       const loading = document.getElementById("rss-loading");
+      const progressBar = document.getElementById("rss-progress");
       loading.style.display = "block";
       feedContainer.innerHTML = '';
 
       const allItems = [];
+      let completed = 0;
 
       for (const url of feeds) {
         try {
@@ -61,7 +67,6 @@
           const isAtom = xml.querySelector("feed");
           let sourceTitle = url;
           let items = [];
-            console.log("Parsing feed:", url, isRSS ? "RSS" : isAtom ? "Atom" : "Unknown");
           if (isRSS) {
             sourceTitle = xml.querySelector("channel > title")?.textContent || url;
             items = Array.from(xml.querySelectorAll("item")).map(item => ({
@@ -83,7 +88,7 @@
               source: sourceTitle,
             }));
           }
-          console.log(`Loaded ${items.length} items from ${sourceTitle}`);
+
           items.forEach(item => {
             const date = new Date(item.pubDate);
             allItems.push({ ...item, date });
@@ -91,10 +96,12 @@
         } catch (err) {
           console.error("Failed to load feed:", url, err);
         }
+
+        completed++;
+        progressBar.style.width = `${(completed / feeds.length) * 100}%`;
       }
 
       // Sort and render
-      console.log("Total items loaded:", allItems.length);
       allItems.sort((a, b) => b.date - a.date);
       allItems.forEach(item => {
         const div = document.createElement("div");
