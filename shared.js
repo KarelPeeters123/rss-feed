@@ -40,6 +40,20 @@ const youtubeChannels = [
     "UCHnyfMqiRRG1u-2MsSQLbXA", // @veritasium
     "UCLXo7UDZvByw2ixzpQCufnA", // @Vox
     "UCeYy3kNtk_vhVSxZhi1WGJw", // @WILTY_TV
+    // Second account
+    "UCC8AgO4FbP11n_WBdFai7DA", // @BobWorldBuilder
+    "UCJQEEltSpi8LXqMH8uTrCQQ", // @Dadi-MysticArts
+    "UC1YDVwTL5M_TVivEdTbfKrA", // @XPtoLevel3
+    "UCbPHHOiOY_tA9BSytK0jDYw", // @BerylShereshewsky
+    "UCT754i47sbjkeIFSTvwqPyA", // @uncarley
+    "UCsP7Bpw36J666Fct5M8u-ZA", // @HowToCookThat
+    "UC4ltK4Ozg9haG9tK8ibz3dQ", // @Grungeon_Master
+    "UC0xnzXxUoQ5c-sdWuORrkhA", // @DeficientMaster
+    "UC2Kyj04yISmHr1V-UlJz4eg", // @_jared
+    "UC2hDF4_VrJ7t-Bvc0v0CZzw", // @NakariSpeardane
+    "UCCR3xZ8j5Zc0UOgUGB0D6-w", // @pointyhatstudios
+    "UCJaTzWgaz4r94ZwpT4OscIA", // @WhatsAnotherHobby
+    "UCsaGKqPZnGp_7N80hcHySGQ", // @TastingHistory
 ];
 
 // Format date/time
