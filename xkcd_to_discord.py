@@ -379,6 +379,9 @@ def main():
                                 image = cleaned_img
                         else:
                             summary = entry.get("summary", "")
+                    # Remove description for xkcd feed (user preference)
+                    if name == "xkcd":
+                        summary = ""
                     # Resolve relative image URLs against feed URL
                     if image and not image.startswith("http"):
                         try:
