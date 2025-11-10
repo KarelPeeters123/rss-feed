@@ -33,7 +33,7 @@ LOG = logging.getLogger("xkcd_to_discord")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # Configuration
-POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "300"))  # seconds
+POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "3600"))  # seconds
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = os.path.join(BASE_DIR, ".xkcd_state.json")
@@ -46,12 +46,12 @@ FEEDS = [
         "webhook_env": "XKCD_DISCORD_WEBHOOK",
         "default_webhook": "https://discord.com/api/webhooks/1436404104493666486/LG7HPvZBrC1uB_jgSQHahpuguxBMLC7ZIOkRFlcVzFKs2m6gBBTh8H35NmclOn-WPeeF",
     },
-    {
-        "name": "stuff",
-        "url": "https://www.stuff.co.nz/rss",
-        "webhook_env": "STUFF_DISCORD_WEBHOOK",
-        "default_webhook": "https://discord.com/api/webhooks/1436415585842892894/ymEdOWv65202Cg_g0mCduWnzJxDcxFN_eqHNLAFXhJfuQhG9xMSjL2ka5yVXy7Bu0ZGB",
-    },
+    # {
+    #     "name": "stuff",
+    #     "url": "https://www.stuff.co.nz/rss",
+    #     "webhook_env": "STUFF_DISCORD_WEBHOOK",
+    #     "default_webhook": "https://discord.com/api/webhooks/1436415585842892894/ymEdOWv65202Cg_g0mCduWnzJxDcxFN_eqHNLAFXhJfuQhG9xMSjL2ka5yVXy7Bu0ZGB",
+    # },
     {
         "name": "spinoff",
         # assumption: use thespinoff feed; update if you prefer a different path
@@ -157,21 +157,124 @@ def save_state(state: Dict[str, Dict[str, List[str]]]) -> None:
 IMG_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.I)
 
 
-def extract_first_image(entry) -> Optional[str]:
-    # content may be present in 'content' or 'summary'
+def extract_all_images(entry) -> List[str]:
+    """Return a list of image URLs found in the entry from several common locations.
+
+    Order is roughly: media_thumbnail, media_content, enclosures/links, images in HTML content/summary,
+    and images inside <noscript> fallbacks.
+    """
+    imgs: List[str] = []
+
+    # 1) feedparser media_thumbnail / media_content
+    try:
+        mt = entry.get("media_thumbnail")
+        if mt:
+            if isinstance(mt, list):
+                for item in mt:
+                    url = (item.get("url") if isinstance(item, dict) else None) or getattr(item, "url", None)
+                    if url:
+                        imgs.append(url)
+            elif isinstance(mt, dict):
+                url = mt.get("url") or mt.get("href")
+                if url:
+                    imgs.append(url)
+    except Exception:
+        pass
+
+    try:
+        mc = entry.get("media_content")
+        if mc:
+            if isinstance(mc, list):
+                for item in mc:
+                    url = (item.get("url") if isinstance(item, dict) else None) or getattr(item, "url", None)
+                    if url:
+                        imgs.append(url)
+            elif isinstance(mc, dict):
+                url = mc.get("url") or mc.get("href")
+                if url:
+                    imgs.append(url)
+    except Exception:
+        pass
+
+    # 1b) content[] items with type='html' may contain images in their value
+    try:
+        if hasattr(entry, "content") and entry.content:
+            for c in entry.content:
+                # c may be a dict or an object with .value/.type
+                val = None
+                t = None
+                if isinstance(c, dict):
+                    val = c.get("value") or c.get("text")
+                    t = c.get("type")
+                else:
+                    val = getattr(c, "value", None)
+                    t = getattr(c, "type", None)
+                if val and (t is None or "html" in (t or "")):
+                    for m in IMG_RE.findall(val):
+                        imgs.append(m)
+    except Exception:
+        pass
+
+    # 2) enclosures and links
+    try:
+        for enc in entry.get("enclosures", []) or []:
+            url = enc.get("href") or enc.get("url")
+            if url and (enc.get("type", "").startswith("image") or url.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp'))):
+                imgs.append(url)
+    except Exception:
+        pass
+
+    try:
+        for ln in entry.get("links", []) or []:
+            if ln.get("rel") in ("enclosure", "related"):
+                url = ln.get("href") or ln.get("url")
+                if url and ln.get("type", "").startswith("image"):
+                    imgs.append(url)
+    except Exception:
+        pass
+
+    # 3) HTML content: content[] then summary
     html = ""
     if hasattr(entry, "content") and entry.content:
-        # feedparser gives a list of content dicts
         try:
             html = entry.content[0].value
         except Exception:
             html = ""
     if not html and entry.get("summary"):
         html = entry.get("summary", "")
-    m = IMG_RE.search(html)
-    if m:
-        return m.group(1)
-    return None
+    if html:
+        for m in IMG_RE.findall(html):
+            imgs.append(m)
+
+    # 4) noscript fallbacks
+    try:
+        soup = BeautifulSoup(html, "html.parser") if html else None
+        if soup:
+            nos = soup.find("noscript")
+            if nos:
+                try:
+                    nsoup = BeautifulSoup(nos.decode_contents(), "html.parser")
+                    for img in nsoup.find_all("img"):
+                        src = img.get("src")
+                        if src:
+                            imgs.append(src)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Deduplicate while preserving order
+    seen = set()
+    out: List[str] = []
+    for u in imgs:
+        if not u:
+            continue
+        # strip whitespace
+        u2 = u.strip()
+        if u2 and u2 not in seen:
+            seen.add(u2)
+            out.append(u2)
+    return out
 
 
 def clean_html_summary(entry) -> Tuple[str, Optional[str]]:
@@ -290,9 +393,39 @@ def send_to_discord(title: str, link: str, webhook_url: str, summary: str = "", 
 
 
 def fetch_entries(feed_url: str):
-    feed = feedparser.parse(feed_url)
+    """Fetch the feed using requests and parse with feedparser.
+
+    This avoids feedparser doing the HTTP fetch itself (which can cause
+    encoding mismatches). We pass the raw bytes to feedparser so it can
+    respect XML/HTTP declared encodings. If the requests fetch fails we
+    fall back to feedparser.parse(url).
+    """
+    resp = None
+    try:
+        headers = {"User-Agent": "rss-to-discord/1.0 (+https://example.com)"}
+        resp = requests.get(feed_url, timeout=10, headers=headers)
+        if resp.status_code != 200:
+            LOG.warning("HTTP %s fetching %s", resp.status_code, feed_url)
+        content = resp.content
+        feed = feedparser.parse(content)
+    except Exception:
+        LOG.debug("requests fetch failed for %s, falling back to feedparser.fetch", feed_url, exc_info=True)
+        feed = feedparser.parse(feed_url)
+
     if getattr(feed, "bozo", False):
         LOG.warning("Feed parser reported bozo for %s (malformed feed): %s", feed_url, getattr(feed, "bozo_exception", ""))
+        # Try a recovery for common encoding mismatches using apparent_encoding
+        try:
+            if resp is not None:
+                enc = resp.apparent_encoding or "utf-8"
+                text = resp.content.decode(enc, errors="replace")
+                feed2 = feedparser.parse(text)
+                if not getattr(feed2, "bozo", False):
+                    LOG.info("Recovered feed parse for %s using apparent_encoding=%s", feed_url, enc)
+                    return feed2
+        except Exception:
+            LOG.debug("Recovery parse failed for %s", feed_url, exc_info=True)
+
     return feed
 
 
@@ -355,7 +488,14 @@ def main():
 
                         # Fallback to any <img> found in content/summary
                         if not image:
-                            image = extract_first_image(entry)
+                            imgs = extract_all_images(entry)
+                            # Prefer Spinoff-hosted images when available
+                            if name == "spinoff":
+                                for i, u in enumerate(imgs):
+                                    if u.startswith("https://images.thespinoff.co.nz"):
+                                        imgs.insert(0, imgs.pop(i))
+                                        break
+                            image = imgs[0] if imgs else None
 
                         # Last resort: construct thumbnail from video id in the link or yt:videoId
                         if not image:
@@ -370,8 +510,15 @@ def main():
 
                         # No description for YouTube; summary remains empty
                     else:
-                        # Non-YouTube: extract first image and optionally clean HTML for nicer summary
-                        image = extract_first_image(entry)
+                        # Non-YouTube: extract images and optionally clean HTML for nicer summary
+                        imgs = extract_all_images(entry)
+                        # Prefer Spinoff-hosted images when available
+                        if name == "spinoff":
+                            for i, u in enumerate(imgs):
+                                if u.startswith("https://images.thespinoff.co.nz"):
+                                    imgs.insert(0, imgs.pop(i))
+                                    break
+                        image = imgs[0] if imgs else None
                         if feed_cfg.get("clean_html"):
                             cleaned_summary, cleaned_img = clean_html_summary(entry)
                             summary = cleaned_summary
