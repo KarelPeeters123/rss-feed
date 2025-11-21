@@ -38,7 +38,6 @@ POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "3600"))  # seconds
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = os.path.join(BASE_DIR, ".xkcd_state.json")
 
-# FEEDS configuration: name, feed url, env var for webhook and optional default webhook
 FEEDS = [
     {
         "name": "xkcd",
@@ -61,11 +60,6 @@ FEEDS = [
         "clean_html": True,
     },
 ]
-
-# YouTube channels are listed in rss-feed/shared.js. Use those channel IDs to
-# create per-channel RSS feed entries that all post to a single YOUTUBE_DISCORD_WEBHOOK.
-# No default webhook is provided for YouTube; set the environment variable
-# YOUTUBE_DISCORD_WEBHOOK to enable posting.
 YOUTUBE_CHANNEL_IDS = [
     "UC-kM5kL9CgjN9s9pim089gg",
     "UCaN8DZdc8EHo5y1LsQWMiig",
@@ -125,7 +119,6 @@ for ch in YOUTUBE_CHANNEL_IDS:
         "url": f"https://www.youtube.com/feeds/videos.xml?channel_id={ch}",
         "webhook_env": "YOUTUBE_DISCORD_WEBHOOK",
         "default_webhook": "https://discord.com/api/webhooks/1436420445065707520/YswjSscfNtWxq6injmBm4v0M0xvf3H8dz6KGM-8JTAdWiE_WNZKbU1EHqzfv2b_8zVUS",
-        # YouTube entries are simple and don't need HTML cleaning
         "clean_html": False,
     })
 
@@ -135,7 +128,6 @@ def webhook_for_feed(feed_cfg: Dict) -> Optional[str]:
 
 
 def load_state() -> Dict[str, Dict[str, List[str]]]:
-    # state structure: { "feeds": { feed_name: [seen_links...] } }
     if not os.path.exists(STATE_FILE):
         return {"feeds": {}}
     try:
@@ -196,11 +188,9 @@ def extract_all_images(entry) -> List[str]:
     except Exception:
         pass
 
-    # 1b) content[] items with type='html' may contain images in their value
     try:
         if hasattr(entry, "content") and entry.content:
             for c in entry.content:
-                # c may be a dict or an object with .value/.type
                 val = None
                 t = None
                 if isinstance(c, dict):
@@ -215,7 +205,6 @@ def extract_all_images(entry) -> List[str]:
     except Exception:
         pass
 
-    # 2) enclosures and links
     try:
         for enc in entry.get("enclosures", []) or []:
             url = enc.get("href") or enc.get("url")
@@ -394,11 +383,6 @@ def send_to_discord(title: str, link: str, webhook_url: str, summary: str = "", 
 
 def fetch_entries(feed_url: str):
     """Fetch the feed using requests and parse with feedparser.
-
-    This avoids feedparser doing the HTTP fetch itself (which can cause
-    encoding mismatches). We pass the raw bytes to feedparser so it can
-    respect XML/HTTP declared encodings. If the requests fetch fails we
-    fall back to feedparser.parse(url).
     """
     resp = None
     try:
